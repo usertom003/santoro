@@ -6,6 +6,8 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 import cv2
+import random
+from collections import defaultdict
 
 class DatasetManager:
     def __init__(self):
@@ -218,3 +220,59 @@ class DatasetManager:
             })
             
         return data
+
+    def _merge_datasets(self, datasets: List[Dict]) -> Dict:
+        """
+        Unisce più dataset in un unico formato standardizzato
+        
+        Args:
+            datasets: Lista di dataset da unire
+            
+        Returns:
+            Dict: Dataset unificato con chiavi 'emotions' e 'micro_expressions'
+        """
+        merged = {
+            'emotions': [],
+            'micro_expressions': []
+        }
+        
+        for dataset in datasets:
+            if 'emotions' in dataset:
+                merged['emotions'].extend(dataset['emotions'])
+            if 'micro_expressions' in dataset:
+                merged['micro_expressions'].extend(dataset['micro_expressions'])
+                
+        # Shuffle dei dati
+        random.shuffle(merged['emotions'])
+        random.shuffle(merged['micro_expressions'])
+        
+        # Bilanciamento delle classi
+        merged['emotions'] = self._balance_classes(merged['emotions'])
+        merged['micro_expressions'] = self._balance_classes(merged['micro_expressions'])
+        
+        return merged
+        
+    def _balance_classes(self, data: List[Dict]) -> List[Dict]:
+        """
+        Bilancia le classi nel dataset usando under-sampling
+        
+        Args:
+            data: Lista di dizionari contenenti 'image' e 'label'
+            
+        Returns:
+            List[Dict]: Dataset bilanciato
+        """
+        # Raggruppa per label
+        grouped = defaultdict(list)
+        for item in data:
+            grouped[item['label']].append(item)
+            
+        # Trova la dimensione della classe più piccola
+        min_size = min(len(samples) for samples in grouped.values())
+        
+        # Under-sampling
+        balanced = []
+        for label, samples in grouped.items():
+            balanced.extend(random.sample(samples, min_size))
+            
+        return balanced
